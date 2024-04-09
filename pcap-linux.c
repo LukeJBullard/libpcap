@@ -95,6 +95,7 @@
 #include <poll.h>
 #include <dirent.h>
 #include <sys/eventfd.h>
+#include <time.h>
 
 #include "pcap-int.h"
 #include "pcap-util.h"
@@ -151,6 +152,12 @@
  * For checking whether a device is a bonding device.
  */
 #include <linux/if_bonding.h>
+
+/*
+ * Nanoseconds to sleep if waiting on packets.
+ * Prevents excessive cycles from being consumed.
+ */
+#define NS_SLEEP_ON_WAIT 74000000
 
 /*
  * Got libnl?
@@ -3467,6 +3474,7 @@ static int pcap_wait_for_frames_mmap(pcap_t *handle)
 	int timeout;
 	struct ifreq ifr;
 	int ret;
+	const struct timespec tsSleepOnWait = {0, NS_SLEEP_ON_WAIT};
 	struct pollfd pollinfo[2];
 	int numpollinfo;
 	pollinfo[0].fd = handle->fd;
@@ -3809,6 +3817,11 @@ static int pcap_wait_for_frames_mmap(pcap_t *handle)
 		 */
 		if (handlep->poll_timeout == 0)
 			break;
+		
+		/*
+		 * Sleep to not take up too many cycles
+		 */
+		nanosleep(&tsSleepOnWait, NULL);
 	}
 	return 0;
 }
